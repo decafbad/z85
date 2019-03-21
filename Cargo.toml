@@ -1,0 +1,9 @@
+[package]
+name = "z85"
+version = "1.0.0"
+authors = ["Mehmet Kose"]
+repository = "https://github.com/decafbad/z85"
+edition = "2018"
+
+[dependencies]
+byteorder = "1.3.1"

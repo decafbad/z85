@@ -5,6 +5,7 @@ extern crate byteorder;
 extern crate quickcheck;
 
 use byteorder::{BigEndian, ByteOrder};
+use std::{error, fmt, str};
 
 static LETTERS: [u8; 85] =
     *b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.-:+=^!/*?&<>()[]{}@%$#";
@@ -19,13 +20,31 @@ fn encode_chunk(input: &[u8]) -> [u8; 5] {
     ls
 }
 
-pub struct InvalidInputSize;
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct InvalidInputSizeError;
 
-pub fn encode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<String, InvalidInputSize> {
+impl fmt::Display for InvalidInputSizeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Input size must be multiple of four.")
+    }
+}
+
+impl error::Error for InvalidInputSizeError {
+    fn description(&self) -> &str {
+        "invalid input size"
+    }
+    fn cause(&self) -> Option<&error::Error> {
+        None
+    }
+}
+
+/// Encode arbitrary octets as base64. Returns a Result with String.
+/// Input size must be multiple of four.
+pub fn encode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<String, InvalidInputSizeError> {
     let input = input.as_ref();
     let len = input.len();
     if len % 4 != 0 {
-        return Err(InvalidInputSize);
+        return Err(InvalidInputSizeError);
     }
     let mut out = Vec::with_capacity(len / 4 * 5);
     for chunk in input.chunks(4) {
@@ -62,6 +81,7 @@ fn decode_chunk(input: &[u8]) -> FromDecodeChunk {
 }
 
 /// Errors that can occur while decoding.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DecodeError {
     /// The length of the input is invalid.
     InvalidLength,
@@ -69,6 +89,29 @@ pub enum DecodeError {
     InvalidByte(usize, u8),
 }
 
+impl fmt::Display for DecodeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use DecodeError::*;
+        match *self {
+            InvalidLength => write!(f, "Encoded text length must be multiple of five."),
+            InvalidByte(index, byte) => write!(f, "Invalid byte 0x{:2X}, offset {}.", byte, index),
+        }
+    }
+}
+
+impl error::Error for DecodeError {
+    fn description(&self) -> &str {
+        match *self {
+            DecodeError::InvalidByte(_, _) => "invalid byte",
+            DecodeError::InvalidLength => "invalid length",
+        }
+    }
+    fn cause(&self) -> Option<&error::Error> {
+        None
+    }
+}
+
+/// Decode from string reference as octets. Returns a Result containing a Vec.
 pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, DecodeError> {
     use DecodeError::*;
     use FromDecodeChunk::*;
@@ -89,8 +132,8 @@ pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, DecodeError
 
 #[cfg(test)]
 mod tests {
-    use super::FromDecodeChunk::*;
     use super::*;
+    use FromDecodeChunk::*;
     const LS1: [u8; 5] = *b"Hello";
     const LS2: [u8; 5] = *b"World";
     const BS1: [u8; 4] = [0x86, 0x4F, 0xD2, 0x6F];

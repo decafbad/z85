@@ -3,8 +3,7 @@ extern crate quickcheck;
 
 extern crate z85;
 
-use z85::{decode, encode, DecodeError};
-
+use z85::{decode, encode};
 
 quickcheck! {
     fn encode_quick(input: Vec<u8>) -> bool {

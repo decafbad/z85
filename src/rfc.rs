@@ -40,9 +40,7 @@ pub struct Z85 {
 
 impl fmt::Display for Z85 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // All bytes are seven bits. No worries.
-        let s = unsafe { std::str::from_utf8_unchecked(&self.payload) };
-        write!(f, "{}", s)
+        write!(f, "{}", self.as_str())
     }
 }
 

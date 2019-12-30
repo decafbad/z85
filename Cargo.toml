@@ -1,6 +1,6 @@
 [package]
 name = "z85"
-version = "2.0.1"
+version = "2.0.2"
 authors = ["Mehmet Kose"]
 repository = "https://github.com/decafbad/z85"
 edition = "2018"

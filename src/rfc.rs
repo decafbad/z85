@@ -187,6 +187,20 @@ mod tests {
         assert_eq!(decode_chunk(LS2), BS2);
     }
 
+    #[test]
+    fn test_all_raw_data_made_of_seven_bit_bytes() {
+        fn check_arr(arr: &[u8]) -> bool {
+            for b in arr {
+                if !(b < &0x80) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        assert!(check_arr(&LETTERS));
+        assert!(check_arr(&SORTED_LETTERS));
+    }
+
     proptest! {
         #[test]
         fn test_encode_chunk_prop(bs: [u8; 4]) {

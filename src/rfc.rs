@@ -40,7 +40,9 @@ pub struct Z85 {
 
 impl fmt::Display for Z85 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.payload.fmt(f)
+        // All bytes are seven bits. No worries.
+        let s = unsafe { std::str::from_utf8_unchecked(&self.payload) };
+        write!(f, "{}", s)
     }
 }
 
@@ -140,8 +142,9 @@ impl Z85 {
         Ok(Z85 { payload: input })
     }
 
-    /// Owns any byte vector as Z85 and assumes it's valid.
+    /// # Safety
     /// This can lead to crashes.
+    /// Owns any byte vector as Z85 and assumes it's valid.
     pub unsafe fn wrap_bytes_unchecked(input: Vec<u8>) -> Self {
         Z85 { payload: input }
     }

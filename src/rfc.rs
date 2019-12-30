@@ -102,6 +102,13 @@ impl Z85 {
         Ok(Z85 { payload })
     }
 
+    /// Returns Z85 data as a str.
+    pub fn as_str(&self) -> &str {
+        // SAFETY: We know (through checking or constructing ourselves) that the payload
+        //         only contains valid Z85 encoding characters.
+        unsafe { std::str::from_utf8_unchecked(&self.payload) }
+    }
+
     /// Returns Z85 data as a slice.
     pub fn as_bytes(&self) -> &[u8] {
         self.payload.as_slice()
@@ -186,6 +193,13 @@ mod tests {
             let ls = encode_chunk(bs);
             let new_bs = decode_chunk(ls);
             prop_assert_eq!(new_bs ,bs);
+        }
+
+        #[test]
+        fn test_encode_chunk_is_unicode_prop(bs: [u8; 4]) {
+            let ls = encode_chunk(bs);
+            let ls_str_res = std::str::from_utf8(&ls);
+            prop_assert!(ls_str_res.is_ok());
         }
     }
 }

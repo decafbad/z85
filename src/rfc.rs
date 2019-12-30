@@ -33,7 +33,7 @@ static SORTED_LETTERS: [u8; 85] = [
 
 /// Main type. Input data length must be
 /// multiple of four.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Z85 {
     payload: Vec<u8>,
 }

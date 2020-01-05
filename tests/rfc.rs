@@ -19,7 +19,7 @@ fn test_decode_simple() {
 proptest! {
     #[test]
     fn test_prop(input: Vec<u8>) {
-        let mut pbs=input.clone();
+        let mut pbs=input;
         pbs.truncate(pbs.len()/4*4);
         let z85=Z85::encode(pbs.as_slice()).unwrap();
         let newbs=z85.decode();

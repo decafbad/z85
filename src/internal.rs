@@ -1,3 +1,7 @@
+use smallvec::{smallvec, SmallVec};
+
+type Tail = SmallVec<[u8; 5]>;
+
 static LETTERS: [u8; 85] = [
     0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66,
     0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76,
@@ -72,6 +76,32 @@ pub fn validate_chunk(lschunk: &[u8]) -> CVResult {
     Fine
 }
 
+pub fn encode_tail(input: &[u8]) -> [u8; 5] {
+    let diff = 4 - input.len();
+    let mut bintail: Tail = smallvec![0;diff];
+    bintail.extend_from_slice(input);
+    let mut out = encode_chunk(&bintail);
+    for l in out.iter_mut().take(diff) {
+        *l = b'#';
+    }
+    out
+}
+
+pub fn decode_tail(input: &[u8]) -> Tail {
+    let mut diff = 0;
+    let mut z85_tail: Tail = SmallVec::from_slice(input);
+    for l in z85_tail.iter_mut() {
+        if *l != b'#' {
+            break;
+        }
+        *l = b'0';
+        diff += 1;
+    }
+    let out = decode_chunk(&z85_tail);
+    let out = &out[diff..];
+    SmallVec::from_slice(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -83,41 +113,65 @@ mod tests {
     const LS2: &[u8; 5] = b"World";
 
     #[test]
-    fn test_encode_chunk_simple() {
+    fn encode_chunk_simple() {
         assert_eq!(encode_chunk(BS1), *LS1);
         assert_eq!(encode_chunk(BS2), *LS2);
     }
 
     #[test]
-    fn test_decode_chunk_simple() {
+    fn decode_chunk_simple() {
         assert_eq!(decode_chunk(LS1), BS1);
         assert_eq!(decode_chunk(LS2), BS2);
     }
 
     #[test]
-    fn test_all_raw_data_made_of_seven_bit_bytes() {
+    fn all_raw_data_made_of_seven_bit_bytes() {
         for &b in LETTERS.iter() {
             assert!(b < 0x80)
         }
     }
 
+    #[test]
+    fn encode_tail_one_byte() {
+        for b in 0..=255 {
+            let bintail = vec![b];
+            let z85_tail = encode_tail(&bintail);
+            let newbt = decode_tail(&z85_tail);
+            assert_eq!(bintail, newbt.to_vec());
+        }
+    }
+
     proptest! {
         #[test]
-        fn test_encode_chunk_prop(bs: [u8; 4]) {
+        fn encode_chunk_prop(bs: [u8; 4]) {
             let ls = encode_chunk(&bs);
             let new_bs = decode_chunk(&ls);
             prop_assert_eq!(new_bs ,bs);
         }
 
         #[test]
-        fn test_encode_chunk_is_unicode_prop(bs: [u8; 4]) {
+        fn encode_chunk_is_unicode_prop(bs: [u8; 4]) {
             let ls = encode_chunk(&bs);
             let ls_str_res = std::str::from_utf8(&ls);
             prop_assert!(ls_str_res.is_ok());
         }
 
         #[test]
-        fn test_validate_chunk_all_fine_prop(bs: [u8;4]) {
+        fn encode_tail_two_bytes_prop(bs: [u8;2]) {
+            let z85_tail = encode_tail(&bs);
+            let new_bs = decode_tail(&z85_tail);
+            prop_assert_eq!(&bs,new_bs.as_slice());
+        }
+
+        #[test]
+        fn encode_tail_three_bytes_prop(bs: [u8;3]) {
+            let z85_tail = encode_tail(&bs);
+            let new_bs = decode_tail(&z85_tail);
+            prop_assert_eq!(&bs,new_bs.as_slice());
+        }
+
+        #[test]
+        fn validate_chunk_all_fine_prop(bs: [u8;4]) {
             let ls = encode_chunk(&bs);
             let fine = CVResult::Fine;
             let res=validate_chunk(&ls);

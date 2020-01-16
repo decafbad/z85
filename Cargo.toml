@@ -9,3 +9,6 @@ description = "Rust implementation of ZeroMQ's Z85 encoding mechanism."
 
 [dev-dependencies]
 proptest = "0.9.4"
+
+[dependencies]
+smallvec = "1.1.0"

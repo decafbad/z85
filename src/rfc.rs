@@ -104,9 +104,9 @@ impl Z85 {
         Ok(Z85 { payload: input })
     }
 
-    /// # Safety
-    /// This can lead to crashes.
     /// Owns any byte vector as Z85 and assumes it's valid.
+    /// # Safety
+    /// This can lead to crashes with wrong error messages.
     pub unsafe fn wrap_bytes_unchecked(input: Vec<u8>) -> Self {
         Z85 { payload: input }
     }

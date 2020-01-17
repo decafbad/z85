@@ -1,10 +1,19 @@
 use super::internal;
+use std::fmt::{self, Debug};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Z85p {
     payload: Vec<u8>,
 }
 
+impl fmt::Display for Z85p {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
 impl Z85p {
+    /// Creates Z85 from any byte slice
     pub fn encode(input: &[u8]) -> Z85p {
         let length = input.len();
         let tail_size = length % 4;
@@ -23,6 +32,7 @@ impl Z85p {
         Z85p { payload }
     }
 
+    /// Converts data back to original byte vector.
     pub fn decode(&self) -> Vec<u8> {
         let input = &self.payload;
         let length = input.len();
@@ -47,14 +57,14 @@ impl Z85p {
         out
     }
 
-    /// Owns any byte vector as Z85 and assumes it's valid.
+    /// Owns any byte vector as Z85p and assumes it's valid.
     /// # Safety
     /// This can lead to crashes with wrong error messages.
     pub unsafe fn wrap_bytes_unchecked(input: Vec<u8>) -> Self {
         Z85p { payload: input }
     }
 
-    /// Returns Z85 data as a str.
+    /// Returns Z85p data as a str.
     pub fn as_str(&self) -> &str {
         // SAFETY: We know (through checking or constructing ourselves) that the payload
         //         only contains valid Z85 encoding characters.

@@ -1,13 +1,13 @@
 use proptest::prelude::*;
 use z85::padded::*;
 
-const BS: [u8; 8] = [0x86, 0x4F, 0xD2, 0x6F, 0xB5, 0x59, 0xF7, 0x5B];
-const LS: [u8; 10] = *b"HelloWorld";
+const BS: &[u8] = &[0x86, 0x4F, 0xD2, 0x6F, 0xB5, 0x59, 0xF7, 0x5B];
+const LS: &[u8] = b"HelloWorld";
 
 #[test]
 fn encode_simple() {
-    let z85p = Z85p::encode(&BS);
-    assert_eq!(&LS, z85p.as_bytes());
+    let z85p = Z85p::encode(BS);
+    assert_eq!(LS, z85p.as_bytes());
 }
 
 #[test]

@@ -13,7 +13,7 @@ pub struct Z85 {
 
 impl fmt::Display for Z85 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.as_str())
+        f.write_str(self.as_str())
     }
 }
 

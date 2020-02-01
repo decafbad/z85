@@ -10,6 +10,11 @@ categories = ["encoding"]
 
 [dev-dependencies]
 proptest = "0.9.4"
+criterion = "0.3.1"
 
 [dependencies]
 smallvec = "1.1.0"
+
+[[bench]]
+name = "display"
+harness = false

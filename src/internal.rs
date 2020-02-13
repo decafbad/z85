@@ -1,4 +1,6 @@
 use smallvec::{smallvec, SmallVec};
+use std::error::Error;
+use std::fmt::{self, Debug};
 
 type Tail = SmallVec<[u8; 5]>;
 
@@ -19,6 +21,32 @@ static OCTETS: [u8; 96] = [
     0xFF, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
     0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x4F, 0xFF, 0x50, 0xFF, 0xFF,
 ];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParserError {
+    InvalidInputSize(usize),
+    InvalidByte(usize, u8),
+    InvalidChunk(usize),
+}
+
+impl fmt::Display for ParserError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use ParserError::*;
+        match self {
+            InvalidInputSize(size) => {
+                write!(f, "Z85 input length ({}) is not multiple of five.", size)
+            }
+            InvalidByte(pos, b) => write!(
+                f,
+                "Z85 data has an invalid byte (0x{:02X}) at ({}) ",
+                b, pos
+            ),
+            InvalidChunk(pos) => write!(f, "Z85 data has an invalid 5 bytes chunk at ({}) ", pos),
+        }
+    }
+}
+
+impl Error for ParserError {}
 
 pub fn encode_chunk(binchunk: &[u8]) -> [u8; 5] {
     let mut full_num = 0_u32;
@@ -102,6 +130,38 @@ pub fn decode_tail(input: &[u8]) -> Tail {
     SmallVec::from_slice(out)
 }
 
+pub fn validate_tail(input: &[u8]) -> CVResult {
+    use CVResult::*;
+    let mut diff = 0;
+    let mut z85_tail: Tail = SmallVec::from_slice(input);
+    for l in z85_tail.iter_mut() {
+        if *l != b'#' {
+            break;
+        }
+        *l = b'0';
+        diff += 1;
+    }
+    if diff < 1 || 3 < diff {
+        return WrongChunk;
+    }
+    match validate_chunk(z85_tail.as_slice()) {
+        Fine => (),
+        wrong => return wrong,
+    }
+    let mut full_num: u64 = 0;
+    for &l in z85_tail.as_slice() {
+        let index = (l as usize) - 32;
+        let octet = OCTETS[index] as u64;
+        full_num = full_num * 85 + octet;
+    }
+    let digit_count = 4 - diff;
+    let max_full_num = 0x100_u64.pow(digit_count) - 1;
+    if full_num > max_full_num {
+        return WrongChunk;
+    }
+    Fine
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -136,6 +196,7 @@ mod tests {
         for b in 0..=255 {
             let bintail = vec![b];
             let z85_tail = encode_tail(&bintail);
+            assert_eq!(validate_tail(&z85_tail), CVResult::Fine);
             let newbt = decode_tail(&z85_tail);
             assert_eq!(bintail, newbt.to_vec());
         }
@@ -159,6 +220,7 @@ mod tests {
         #[test]
         fn encode_tail_two_bytes_prop(bs: [u8;2]) {
             let z85_tail = encode_tail(&bs);
+            prop_assert_eq!(validate_tail(&z85_tail), CVResult::Fine);
             let new_bs = decode_tail(&z85_tail);
             prop_assert_eq!(&bs,new_bs.as_slice());
         }
@@ -166,6 +228,7 @@ mod tests {
         #[test]
         fn encode_tail_three_bytes_prop(bs: [u8;3]) {
             let z85_tail = encode_tail(&bs);
+            prop_assert_eq!(validate_tail(&z85_tail), CVResult::Fine);
             let new_bs = decode_tail(&z85_tail);
             prop_assert_eq!(&bs,new_bs.as_slice());
         }

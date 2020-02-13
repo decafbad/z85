@@ -32,31 +32,7 @@ impl fmt::Display for EncoderError {
 
 impl Error for EncoderError {}
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ParserError {
-    InvalidInputSize(usize),
-    InvalidByte(usize, u8),
-    InvalidChunk(usize),
-}
-
-impl fmt::Display for ParserError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use ParserError::*;
-        match self {
-            InvalidInputSize(size) => {
-                write!(f, "Z85 input length ({}) is not multiple of five.", size)
-            }
-            InvalidByte(pos, b) => write!(
-                f,
-                "Z85 data has an invalid byte (0x{:02X}) at ({}) ",
-                b, pos
-            ),
-            InvalidChunk(pos) => write!(f, "Z85 data has an invalid 5 bytes chunk at ({}) ", pos),
-        }
-    }
-}
-
-impl Error for ParserError {}
+pub use internal::ParserError;
 
 impl Z85 {
     /// Creates Z85 from any byte slice with length

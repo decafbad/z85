@@ -20,6 +20,11 @@ proptest! {
     #[test]
     fn prop(input: Vec<u8>) {
         let z85p=Z85p::encode(&input);
+        let z85_vec=z85p.clone().as_bytes().to_vec();
+        let wrapped=Z85p::wrap_bytes(z85_vec);
+        if let Err(_) = wrapped {
+            panic!("Z85p::wrap_bytes incorrectly returned error");
+        }
         let newbs=z85p.decode();
         prop_assert_eq!(input,newbs);
     }

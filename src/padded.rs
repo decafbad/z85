@@ -6,6 +6,8 @@ pub struct Z85p {
     payload: Vec<u8>,
 }
 
+pub use internal::ParserError;
+
 impl fmt::Display for Z85p {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(self.as_str())
@@ -13,7 +15,7 @@ impl fmt::Display for Z85p {
 }
 
 impl Z85p {
-    /// Creates Z85 from any byte slice
+    /// Creates Z85p from any byte slice
     pub fn encode(input: &[u8]) -> Z85p {
         let length = input.len();
         let tail_size = length % 4;
@@ -64,6 +66,35 @@ impl Z85p {
         Z85p { payload: input }
     }
 
+    /// Takes in and owns Z85p data if it's valid.
+    pub fn wrap_bytes(input: Vec<u8>) -> Result<Z85p, ParserError> {
+        use internal::CVResult::*;
+        use ParserError::*;
+        let length = input.len();
+        if length % 5 != 0 {
+            return Err(InvalidInputSize(length));
+        }
+        let has_tail = length != 0 && input[length - 5] == b'#';
+        let mut chunked_size = length;
+        if has_tail {
+            chunked_size -= 5;
+        }
+        for (cpos, chunk) in input[..chunked_size].chunks(5).enumerate() {
+            match internal::validate_chunk(chunk) {
+                WrongChunk => return Err(InvalidChunk(cpos * 5)),
+                WrongByte(pos, l) => return Err(InvalidByte(cpos * 5 + pos, l)),
+                Fine => (),
+            }
+        }
+        if has_tail {
+            match internal::validate_tail(&input[chunked_size..]) {
+                WrongChunk => return Err(InvalidChunk(length - 5)),
+                WrongByte(pos, l) => return Err(InvalidByte(length - 5 + pos, l)),
+                Fine => (),
+            }
+        }
+        Ok(Z85p { payload: input })
+    }
     /// Returns Z85p data as a str.
     pub fn as_str(&self) -> &str {
         // SAFETY: We know (through checking or constructing ourselves) that the payload

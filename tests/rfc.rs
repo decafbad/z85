@@ -18,11 +18,23 @@ fn decode_simple() {
 
 proptest! {
     #[test]
-    fn prop(input: Vec<u8>) {
+    fn z85_prop(input: Vec<u8>) {
         let mut pbs=input;
         pbs.truncate(pbs.len()/4*4);
         let z85=Z85::encode(pbs.as_slice()).unwrap();
+        let z85_data=z85.as_bytes().to_vec();
+        if let Err(_)=Z85::wrap_bytes(z85_data) {
+            panic!("Z85::wrap_bytes incorrectly returned error");
+        }
         let newbs=z85.decode();
-        assert_eq!(pbs,newbs);
+        prop_assert_eq!(pbs,newbs);
+    }
+    #[test]
+    fn vec_prop(input: Vec<u8>) {
+        let mut pbs=input;
+        pbs.truncate(pbs.len()/4*4);
+        let z85_vec=encode(pbs.as_slice()).unwrap();
+        let newbs=decode(&z85_vec).unwrap();
+        prop_assert_eq!(pbs,newbs.as_slice());
     }
 }

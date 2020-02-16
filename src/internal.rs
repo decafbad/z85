@@ -63,7 +63,7 @@ pub fn encode_chunk(binchunk: &[u8]) -> [u8; 5] {
     z85_chunk
 }
 
-// this only works on trusted data
+// assumes input data is valid
 pub fn decode_chunk(lschunk: &[u8]) -> [u8; 4] {
     let mut full_num: u32 = 0;
     for &l in lschunk {
@@ -84,7 +84,7 @@ pub enum CVResult {
 
 pub fn validate_chunk(lschunk: &[u8]) -> CVResult {
     use CVResult::*;
-    let u32_max = std::u32::MAX as u64;
+    const U32_MAX: u64 = std::u32::MAX as u64;
     let mut full_num = 0_u64;
     for (i, &l) in lschunk.iter().enumerate() {
         if l < 0x20 || 0x7f < l {
@@ -98,7 +98,7 @@ pub fn validate_chunk(lschunk: &[u8]) -> CVResult {
         full_num *= 85;
         full_num += b as u64;
     }
-    if full_num > u32_max {
+    if full_num > U32_MAX {
         return WrongChunk;
     }
     Fine
@@ -115,9 +115,10 @@ pub fn encode_tail(input: &[u8]) -> [u8; 5] {
     out
 }
 
-pub fn decode_tail(input: &[u8]) -> Tail {
-    let mut diff = 0;
+// counts leading b'#' in tails and turns them to b'0'
+fn get_diff(input: &[u8]) -> (Tail, usize) {
     let mut z85_tail: Tail = SmallVec::from_slice(input);
+    let mut diff = 0;
     for l in z85_tail.iter_mut() {
         if *l != b'#' {
             break;
@@ -125,6 +126,12 @@ pub fn decode_tail(input: &[u8]) -> Tail {
         *l = b'0';
         diff += 1;
     }
+    (z85_tail, diff)
+}
+
+// assumes input data is valid
+pub fn decode_tail(input: &[u8]) -> Tail {
+    let (z85_tail, diff) = get_diff(input);
     let out = decode_chunk(&z85_tail);
     let out = &out[diff..];
     SmallVec::from_slice(out)
@@ -132,19 +139,11 @@ pub fn decode_tail(input: &[u8]) -> Tail {
 
 pub fn validate_tail(input: &[u8]) -> CVResult {
     use CVResult::*;
-    let mut diff = 0;
-    let mut z85_tail: Tail = SmallVec::from_slice(input);
-    for l in z85_tail.iter_mut() {
-        if *l != b'#' {
-            break;
-        }
-        *l = b'0';
-        diff += 1;
-    }
+    let (z85_tail, diff) = get_diff(input);
     if diff < 1 || 3 < diff {
         return WrongChunk;
     }
-    match validate_chunk(z85_tail.as_slice()) {
+    match validate_chunk(&z85_tail) {
         Fine => (),
         wrong => return wrong,
     }
@@ -154,7 +153,7 @@ pub fn validate_tail(input: &[u8]) -> CVResult {
         let octet = OCTETS[index] as u64;
         full_num = full_num * 85 + octet;
     }
-    let digit_count = 4 - diff;
+    let digit_count = 4 - (diff as u32);
     let max_full_num = 0x100_u64.pow(digit_count) - 1;
     if full_num > max_full_num {
         return WrongChunk;

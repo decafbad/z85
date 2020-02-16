@@ -1,6 +1,78 @@
 use super::internal;
 use std::fmt::{self, Debug};
 
+/// Converts any byte slice to Z85p data
+pub fn encode(input: &[u8]) -> Vec<u8> {
+    let length = input.len();
+    let tail_size = length % 4;
+    let has_tail = tail_size != 0;
+    let chunked_size = length - tail_size;
+    let mut out = Vec::with_capacity(length / 4 * 5 + 5);
+    for chunk in input[..chunked_size].chunks(4) {
+        let z85_chunk = internal::encode_chunk(chunk);
+        out.extend_from_slice(&z85_chunk);
+    }
+    if has_tail {
+        let tail = &input[chunked_size..];
+        let z85_tail = internal::encode_tail(tail);
+        out.extend_from_slice(&z85_tail);
+    }
+    out
+}
+
+/// Converts z85p data back to original vector
+/// if it's valid.
+pub fn decode(input: &[u8]) -> Result<Vec<u8>, ParserError> {
+    // TODO: no need to iterate twice
+    validate_z85p(input).map(|_| decode_unchecked(input))
+}
+
+fn validate_z85p(input: &[u8]) -> Result<(), ParserError> {
+    use internal::CVResult::*;
+    use ParserError::*;
+    let length = input.len();
+    if length % 5 != 0 {
+        return Err(InvalidInputSize(length));
+    }
+    let has_tail = length != 0 && input[length - 5] == b'#';
+    let chunked_size = if has_tail { length - 5 } else { length };
+    for (cpos, chunk) in input[..chunked_size].chunks(5).enumerate() {
+        match internal::validate_chunk(chunk) {
+            WrongChunk => return Err(InvalidChunk(cpos * 5)),
+            WrongByte(pos, l) => return Err(InvalidByte(cpos * 5 + pos, l)),
+            Fine => (),
+        }
+    }
+    if has_tail {
+        match internal::validate_tail(&input[chunked_size..]) {
+            WrongChunk => return Err(InvalidChunk(length - 5)),
+            WrongByte(pos, l) => return Err(InvalidByte(length - 5 + pos, l)),
+            Fine => (),
+        }
+    }
+    Ok(())
+}
+
+fn decode_unchecked(input: &[u8]) -> Vec<u8> {
+    let length = input.len();
+    if length == 0 {
+        return vec![];
+    }
+    let has_tail = input[length - 5] == b'#';
+    let chunked_size = if has_tail { length - 5 } else { length };
+    let mut out = Vec::with_capacity(length / 5 * 4);
+    for chunk in input[..chunked_size].chunks(5) {
+        let binchunk = internal::decode_chunk(chunk);
+        out.extend_from_slice(&binchunk);
+    }
+    if has_tail {
+        let last_chunk = &input[chunked_size..];
+        let bintail = internal::decode_tail(last_chunk);
+        out.extend_from_slice(&bintail);
+    }
+    out
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Z85p {
     payload: Vec<u8>,
@@ -17,46 +89,18 @@ impl fmt::Display for Z85p {
 impl Z85p {
     /// Creates Z85p from any byte slice
     pub fn encode(input: &[u8]) -> Z85p {
-        let length = input.len();
-        let tail_size = length % 4;
-        let has_tail = tail_size != 0;
-        let chunked_size = length - tail_size;
-        let mut payload = Vec::with_capacity(length / 4 * 5 + 5);
-        for chunk in input[..chunked_size].chunks(4) {
-            let z85_chunk = internal::encode_chunk(chunk);
-            payload.extend_from_slice(&z85_chunk);
-        }
-        if has_tail {
-            let tail = &input[chunked_size..];
-            let z85_tail = internal::encode_tail(tail);
-            payload.extend_from_slice(&z85_tail);
-        }
+        let payload = encode(input);
         Z85p { payload }
     }
 
     /// Converts data back to original byte vector.
     pub fn decode(&self) -> Vec<u8> {
-        let input = &self.payload;
-        let length = input.len();
-        if length == 0 {
-            return vec![];
-        }
-        let has_tail = input[length - 5] == b'#';
-        let mut chunked_size = length;
-        if has_tail {
-            chunked_size -= 5;
-        }
-        let mut out = Vec::with_capacity(length / 5 * 4);
-        for chunk in input[..chunked_size].chunks(5) {
-            let binchunk = internal::decode_chunk(chunk);
-            out.extend_from_slice(&binchunk);
-        }
-        if has_tail {
-            let last_chunk = &input[chunked_size..];
-            let bintail = internal::decode_tail(last_chunk);
-            out.extend_from_slice(&bintail);
-        }
-        out
+        decode_unchecked(&self.payload)
+    }
+
+    /// Takes in and owns Z85p data if it's valid.
+    pub fn wrap_bytes(input: Vec<u8>) -> Result<Z85p, ParserError> {
+        validate_z85p(&input).map(|_| Z85p { payload: input })
     }
 
     /// Owns any byte vector as Z85p and assumes it's valid.
@@ -66,35 +110,6 @@ impl Z85p {
         Z85p { payload: input }
     }
 
-    /// Takes in and owns Z85p data if it's valid.
-    pub fn wrap_bytes(input: Vec<u8>) -> Result<Z85p, ParserError> {
-        use internal::CVResult::*;
-        use ParserError::*;
-        let length = input.len();
-        if length % 5 != 0 {
-            return Err(InvalidInputSize(length));
-        }
-        let has_tail = length != 0 && input[length - 5] == b'#';
-        let mut chunked_size = length;
-        if has_tail {
-            chunked_size -= 5;
-        }
-        for (cpos, chunk) in input[..chunked_size].chunks(5).enumerate() {
-            match internal::validate_chunk(chunk) {
-                WrongChunk => return Err(InvalidChunk(cpos * 5)),
-                WrongByte(pos, l) => return Err(InvalidByte(cpos * 5 + pos, l)),
-                Fine => (),
-            }
-        }
-        if has_tail {
-            match internal::validate_tail(&input[chunked_size..]) {
-                WrongChunk => return Err(InvalidChunk(length - 5)),
-                WrongByte(pos, l) => return Err(InvalidByte(length - 5 + pos, l)),
-                Fine => (),
-            }
-        }
-        Ok(Z85p { payload: input })
-    }
     /// Returns Z85p data as a str.
     pub fn as_str(&self) -> &str {
         // SAFETY: We know (through checking or constructing ourselves) that the payload

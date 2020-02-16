@@ -1,4 +1,4 @@
-//! Rust implementation of ZeroMQ's Z85 encoding mechanism
+//! Rust implementation of ZeroMQ's Z85 encoding mechanism.
 
 //! `rfc` module does just what ZeroMQ's RFC says.
 //! `padded` module adds padding to eliminate
@@ -10,5 +10,6 @@ mod internal;
 /// [Experimental] RFC incompatible code
 /// that can encode everything
 pub mod padded;
-/// Compatible with ZeroMQ's RFC
+
+/// Compatible with ZeroMQ's RFC.
 pub mod rfc;

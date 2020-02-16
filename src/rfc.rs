@@ -1,8 +1,8 @@
-//! Compatible with ZeroMQ's RFC.
-
 use super::internal;
 use std::error::Error;
 use std::fmt::{self, Debug};
+
+pub use internal::ParserError;
 
 /// Main type. Input data length must be
 /// multiple of four.
@@ -32,52 +32,70 @@ impl fmt::Display for EncoderError {
 
 impl Error for EncoderError {}
 
-pub use internal::ParserError;
+fn validate_z85(input: &[u8]) -> Result<(), ParserError> {
+    use internal::CVResult::*;
+    use ParserError::*;
+    let len = input.len();
+    if len % 5 != 0 {
+        return Err(InvalidInputSize(len));
+    }
+    for (cpos, chunk) in input.chunks(5).enumerate() {
+        match internal::validate_chunk(chunk) {
+            WrongChunk => return Err(InvalidChunk(cpos * 5)),
+            WrongByte(pos, l) => return Err(InvalidByte(cpos * 5 + pos, l)),
+            Fine => (),
+        }
+    }
+    Ok(())
+}
+
+/// Converts byte slice to Z85 ancoded vector
+/// if its length is multiple of four
+pub fn encode(input: &[u8]) -> Result<Vec<u8>, EncoderError> {
+    let len = input.len();
+    if len % 4 != 0 {
+        return Err(EncoderError(len));
+    }
+    let z85_length = len / 4 * 5;
+    let mut out = Vec::with_capacity(z85_length);
+    for chunk in input.chunks(4) {
+        let z85_chunk = internal::encode_chunk(chunk);
+        out.extend_from_slice(&z85_chunk);
+    }
+    Ok(out)
+}
+
+/// Converts z85 data back to original vector
+/// if it's valid.
+pub fn decode(input: &[u8]) -> Result<Vec<u8>, ParserError> {
+    // TODO: too many cycles here
+    validate_z85(input).map(|_| decode_unchecked(input))
+}
+
+fn decode_unchecked(input: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(input.len() / 4 * 5);
+    for chunk in input.chunks(5) {
+        let binchunk = internal::decode_chunk(chunk);
+        out.extend_from_slice(&binchunk);
+    }
+    out
+}
 
 impl Z85 {
     /// Creates Z85 from any byte slice with length
     /// multiple of four.
     pub fn encode(input: &[u8]) -> Result<Z85, EncoderError> {
-        let len = input.len();
-        if len % 4 != 0 {
-            return Err(EncoderError(len));
-        }
-        let z85_length = input.len() / 4 * 5;
-        let mut payload = Vec::with_capacity(z85_length);
-        for chunk in input.chunks(4) {
-            let z85_chunk = internal::encode_chunk(chunk);
-            payload.extend_from_slice(&z85_chunk);
-        }
-        Ok(Z85 { payload })
+        encode(input).map(|payload| Z85 { payload })
     }
 
     /// Converts data back to original byte vector.
     pub fn decode(&self) -> Vec<u8> {
-        let pl = &self.payload;
-        let mut out = Vec::with_capacity(pl.len() / 4 * 5);
-        for chunk in pl.chunks(5) {
-            let binchunk = internal::decode_chunk(chunk);
-            out.extend_from_slice(&binchunk);
-        }
-        out
+        decode_unchecked(self.payload.as_slice())
     }
 
     /// Takes in and owns Z85 data if it's valid.
     pub fn wrap_bytes(input: Vec<u8>) -> Result<Z85, ParserError> {
-        use internal::CVResult::*;
-        use ParserError::*;
-        let len = input.len();
-        if len % 5 != 0 {
-            return Err(InvalidInputSize(len));
-        }
-        for (cpos, chunk) in input.chunks(5).enumerate() {
-            match internal::validate_chunk(chunk) {
-                WrongChunk => return Err(InvalidChunk(cpos * 5)),
-                WrongByte(pos, l) => return Err(InvalidByte(cpos * 5 + pos, l)),
-                Fine => (),
-            }
-        }
-        Ok(Z85 { payload: input })
+        validate_z85(&input).map(|_| Z85 { payload: input })
     }
 
     /// Owns any byte vector as Z85 and assumes it's valid.

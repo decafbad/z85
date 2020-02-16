@@ -18,7 +18,7 @@ fn decode_simple() {
 
 proptest! {
     #[test]
-    fn prop(input: Vec<u8>) {
+    fn z85p_prop(input: Vec<u8>) {
         let z85p=Z85p::encode(&input);
         let z85_vec=z85p.clone().as_bytes().to_vec();
         let wrapped=Z85p::wrap_bytes(z85_vec);
@@ -27,5 +27,11 @@ proptest! {
         }
         let newbs=z85p.decode();
         prop_assert_eq!(input,newbs);
+    }
+
+    fn vec_prop(input: Vec<u8>) {
+        let z85_vec=encode(input.as_slice());
+        let newbs=decode(&z85_vec).unwrap();
+        prop_assert_eq!(input,newbs.as_slice());
     }
 }

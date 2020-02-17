@@ -5,6 +5,7 @@
 //! the need of 4-byte aligned input data.
 //! `padded` module hasn't been tested enough yet
 //!  but there won't be any breaking changes.
+mod encdec;
 mod internal;
 
 /// [Experimental] RFC incompatible code

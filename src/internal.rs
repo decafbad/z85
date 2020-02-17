@@ -1,6 +1,4 @@
 use smallvec::{smallvec, SmallVec};
-use std::error::Error;
-use std::fmt::{self, Debug};
 
 type Tail = SmallVec<[u8; 5]>;
 
@@ -22,32 +20,6 @@ static OCTETS: [u8; 96] = [
     0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x4F, 0xFF, 0x50, 0xFF, 0xFF,
 ];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ParserError {
-    InvalidInputSize(usize),
-    InvalidByte(usize, u8),
-    InvalidChunk(usize),
-}
-
-impl fmt::Display for ParserError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use ParserError::*;
-        match self {
-            InvalidInputSize(size) => {
-                write!(f, "Z85 input length ({}) is not multiple of five.", size)
-            }
-            InvalidByte(pos, b) => write!(
-                f,
-                "Z85 data has an invalid byte (0x{:02X}) at ({}) ",
-                b, pos
-            ),
-            InvalidChunk(pos) => write!(f, "Z85 data has an invalid 5 bytes chunk at ({}) ", pos),
-        }
-    }
-}
-
-impl Error for ParserError {}
-
 pub fn encode_chunk(binchunk: &[u8]) -> [u8; 5] {
     let mut full_num = 0_u32;
     for &b in binchunk {
@@ -63,6 +35,25 @@ pub fn encode_chunk(binchunk: &[u8]) -> [u8; 5] {
     z85_chunk
 }
 
+pub fn encode_tail(input: &[u8]) -> [u8; 5] {
+    let diff = 4 - input.len();
+    let mut bintail: Tail = smallvec![0;diff];
+    bintail.extend_from_slice(input);
+    let mut out = encode_chunk(&bintail);
+    for l in out.iter_mut().take(diff) {
+        *l = b'#';
+    }
+    out
+}
+
+// chunk validator result
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CVResult {
+    Fine,
+    WrongChunk,
+    WrongByte(usize, u8),
+}
+
 // assumes input data is valid
 pub fn decode_chunk(lschunk: &[u8]) -> [u8; 4] {
     let mut full_num: u32 = 0;
@@ -74,12 +65,12 @@ pub fn decode_chunk(lschunk: &[u8]) -> [u8; 4] {
     u32::to_be_bytes(full_num)
 }
 
-// chunk validator result
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CVResult {
-    Fine,
-    WrongChunk,
-    WrongByte(usize, u8),
+// assumes input data is valid
+pub fn decode_tail(input: &[u8]) -> Tail {
+    let (z85_tail, diff) = get_diff(input);
+    let out = decode_chunk(&z85_tail);
+    let out = &out[diff..];
+    SmallVec::from_slice(out)
 }
 
 pub fn validate_chunk(lschunk: &[u8]) -> CVResult {
@@ -104,39 +95,6 @@ pub fn validate_chunk(lschunk: &[u8]) -> CVResult {
     Fine
 }
 
-pub fn encode_tail(input: &[u8]) -> [u8; 5] {
-    let diff = 4 - input.len();
-    let mut bintail: Tail = smallvec![0;diff];
-    bintail.extend_from_slice(input);
-    let mut out = encode_chunk(&bintail);
-    for l in out.iter_mut().take(diff) {
-        *l = b'#';
-    }
-    out
-}
-
-// counts leading b'#' in tails and turns them to b'0'
-fn get_diff(input: &[u8]) -> (Tail, usize) {
-    let mut z85_tail: Tail = SmallVec::from_slice(input);
-    let mut diff = 0;
-    for l in z85_tail.iter_mut() {
-        if *l != b'#' {
-            break;
-        }
-        *l = b'0';
-        diff += 1;
-    }
-    (z85_tail, diff)
-}
-
-// assumes input data is valid
-pub fn decode_tail(input: &[u8]) -> Tail {
-    let (z85_tail, diff) = get_diff(input);
-    let out = decode_chunk(&z85_tail);
-    let out = &out[diff..];
-    SmallVec::from_slice(out)
-}
-
 pub fn validate_tail(input: &[u8]) -> CVResult {
     use CVResult::*;
     let (z85_tail, diff) = get_diff(input);
@@ -159,6 +117,20 @@ pub fn validate_tail(input: &[u8]) -> CVResult {
         return WrongChunk;
     }
     Fine
+}
+
+// counts leading b'#' in tails and turns them to b'0'
+fn get_diff(input: &[u8]) -> (Tail, usize) {
+    let mut z85_tail: Tail = SmallVec::from_slice(input);
+    let mut diff = 0;
+    for l in z85_tail.iter_mut() {
+        if *l != b'#' {
+            break;
+        }
+        *l = b'0';
+        diff += 1;
+    }
+    (z85_tail, diff)
 }
 
 #[cfg(test)]

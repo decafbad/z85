@@ -114,3 +114,33 @@ impl fmt::Display for ParserError {
 }
 
 impl Error for ParserError {}
+
+#[cfg(tests)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        fn encode_z85_prop(input: Vec<u8>) {
+            let mut bs=input;
+            let proper_length=bs.len()/4*4;
+            bs.truncate(proper_length);
+            let ls=encode_z85_unchecked(&bs);
+            if validate_z85(&ls).is_err() {
+                panic!("validate_z85 shouldn't have returned error here");
+            }
+            let new_bs=decode_z85_unchecked(&ls);
+            prop_assert_eq!(bs,new_bs);
+        }
+
+        fn encode_z85p_prop(input: Vec<u8>) {
+            let ls=encode_z85__padded_unchecked(&input);
+            if validate_z85_padded(&ls).is_err() {
+                panic!("validate_z85_padded shouldn't have returned error here");
+            }
+            let new_bs=decode_z85_padded_unchecked(&ls);
+            prop_assert_eq!(bs,new_bs);
+        }
+
+    }
+}

@@ -29,6 +29,7 @@ proptest! {
         prop_assert_eq!(input,newbs);
     }
 
+    #[test]
     fn vec_prop(input: Vec<u8>) {
         let z85_vec=encode(input.as_slice());
         let newbs=decode(&z85_vec).unwrap();

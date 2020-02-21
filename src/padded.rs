@@ -9,8 +9,7 @@ pub fn encode(input: &[u8]) -> Vec<u8> {
 /// Converts z85p data back to original vector
 /// if it's valid.
 pub fn decode(input: &[u8]) -> Result<Vec<u8>, ParserError> {
-    // TODO: no need to iterate twice
-    encdec::validate_z85_padded(input).map(|_| encdec::decode_z85_padded_unchecked(input))
+    encdec::decode_z85_padded(input)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

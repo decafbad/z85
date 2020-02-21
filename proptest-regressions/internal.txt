@@ -6,3 +6,4 @@
 # everyone who runs the test benefits from these saved cases.
 cc f07d42961b2791516694290c6478481af78f638ad52932e2b7012aeef828171d # shrinks to bs = [165, 0, 0, 0]
 cc 6471219490b70dfb232132ed258e23d4d36e9b5bb48300cd0652603e61d44a8e # shrinks to bs = [254, 2]
+cc 78b3c30f6287cc69caa865c7fe9d2150c8fa2854e80ce4a57ebe35529f34bd25 # shrinks to bs = [168, 4, 0, 0]

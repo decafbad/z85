@@ -1,4 +1,4 @@
-use super::internal::{CVResult, Chunk};
+use super::internal::{CVError, Chunk};
 use std::error::Error;
 use std::fmt::{self, Debug};
 
@@ -28,7 +28,7 @@ pub fn encode_z85_padded(input: &[u8]) -> Vec<u8> {
 }
 
 pub fn validate_z85(input: &[u8]) -> Result<(), ParserError> {
-    use CVResult::*;
+    use CVError::*;
     use ParserError::*;
     let length = input.len();
     if length % 5 != 0 {
@@ -44,29 +44,8 @@ pub fn validate_z85(input: &[u8]) -> Result<(), ParserError> {
     Ok(())
 }
 
-pub fn validate_z85_padded(input: &[u8]) -> Result<(), ParserError> {
-    use CVResult::*;
-    use ParserError::*;
-    let length = input.len();
-    let has_tail = length >= 5 && input[length - 5] == b'#';
-    let chunked_size = if has_tail { length - 5 } else { length };
-
-    if let err @ Err(_) = validate_z85(&input[..chunked_size]) {
-        return err;
-    }
-
-    if has_tail {
-        match Chunk::from_z85_tail_checked(&input[chunked_size..]) {
-            Err(WrongChunk) => return Err(InvalidChunk(length - 5)),
-            Err(WrongByte(pos, l)) => return Err(InvalidByte(length - 5 + pos, l)),
-            _ => (),
-        }
-    }
-    Ok(())
-}
-
 pub fn decode_z85(input: &[u8]) -> Result<Vec<u8>, ParserError> {
-    use CVResult::*;
+    use CVError::*;
     use ParserError::*;
     let length = input.len();
     if length % 5 != 0 {
@@ -85,18 +64,34 @@ pub fn decode_z85(input: &[u8]) -> Result<Vec<u8>, ParserError> {
     Ok(out)
 }
 
-pub fn decode_z85_padded(input: &[u8]) -> Result<Vec<u8>, ParserError> {
-    use CVResult::*;
+pub fn validate_z85_padded(input: &[u8]) -> Result<(), ParserError> {
+    use CVError::*;
     use ParserError::*;
     let length = input.len();
     let has_tail = length >= 5 && input[length - 5] == b'#';
     let chunked_size = if has_tail { length - 5 } else { length };
 
-    let mut out: Vec<u8>;
-    match decode_z85(&input[..chunked_size]) {
-        Err(e) => return Err(e),
-        Ok(v) => out = v,
+    validate_z85(&input[..chunked_size])?;
+
+    if has_tail {
+        match Chunk::from_z85_tail_checked(&input[chunked_size..]) {
+            Err(WrongChunk) => return Err(InvalidChunk(length - 5)),
+            Err(WrongByte(pos, l)) => return Err(InvalidByte(length - 5 + pos, l)),
+            _ => (),
+        }
     }
+    Ok(())
+}
+
+pub fn decode_z85_padded(input: &[u8]) -> Result<Vec<u8>, ParserError> {
+    use CVError::*;
+    use ParserError::*;
+    let length = input.len();
+    let has_tail = length >= 5 && input[length - 5] == b'#';
+    let chunked_size = if has_tail { length - 5 } else { length };
+
+    let mut out = decode_z85(&input[..chunked_size])?;
+
     if has_tail {
         match Chunk::from_z85_tail_checked(&input[chunked_size..]) {
             Err(WrongChunk) => return Err(InvalidChunk(length - 5)),

@@ -3,9 +3,9 @@ use smallvec::SmallVec;
 
 type Tail = SmallVec<[u8; 5]>;
 
-// chunk validator result
+// chunk validator error
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CVResult {
+pub enum CVError {
     WrongChunk,
     WrongByte(usize, u8),
 }
@@ -70,8 +70,8 @@ impl Chunk {
         Chunk(full_num, diff)
     }
 
-    pub fn from_z85_checked(z85_chunk: &[u8]) -> Result<Chunk, CVResult> {
-        use CVResult::*;
+    pub fn from_z85_checked(z85_chunk: &[u8]) -> Result<Chunk, CVError> {
+        use CVError::*;
         for (i, &l) in z85_chunk.iter().enumerate() {
             if l < 0x20 || 0x7f < l {
                 return Err(WrongByte(i, l));
@@ -95,8 +95,8 @@ impl Chunk {
         Ok(chunk)
     }
 
-    pub fn from_z85_tail_checked(z85_tail: &[u8]) -> Result<Chunk, CVResult> {
-        use CVResult::*;
+    pub fn from_z85_tail_checked(z85_tail: &[u8]) -> Result<Chunk, CVError> {
+        use CVError::*;
         let mut diff = 0;
         let mut z85_tail: Tail = SmallVec::from_slice(z85_tail);
         for l in z85_tail.iter_mut() {

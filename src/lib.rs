@@ -9,6 +9,7 @@ pub enum DecodeError {
     InvalidTail,
 }
 
+/// Errors that can occur while decoding.
 impl DecodeError {
     fn add_offset(&self, chunk_count: usize) -> Self {
         let offset = chunk_count * 5;
@@ -21,6 +22,7 @@ impl DecodeError {
     }
 }
 
+/// Encode arbitrary octets as z85. Returns a String.
 pub fn encode<T: AsRef<[u8]>>(input: T) -> String {
     let input = input.as_ref();
     let length = input.len();
@@ -45,6 +47,7 @@ pub fn encode<T: AsRef<[u8]>>(input: T) -> String {
     unsafe { String::from_utf8_unchecked(out) }
 }
 
+/// Decode from string reference as octets. Returns a Result containing a Vec.
 pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
     let input = input.as_ref();
     let length = input.len();

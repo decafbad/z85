@@ -1,13 +1,39 @@
 //! Rust implementation of ZeroMQ's Z85 encoding mechanism.
 
+use std::error::Error;
+use std::fmt::{self, Display};
+
 mod internal;
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum DecodeError {
     InvalidByte(usize, u8),
     InvalidChunk(usize),
-    InvalidLength,
+    InvalidLength(usize),
     InvalidTail,
 }
+
+impl Display for DecodeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            DecodeError::InvalidLength(length) => {
+                write!(f, "Z85 data length ({}) is not multiple of five", length)
+            }
+            DecodeError::InvalidByte(position, byte) => write!(
+                f,
+                "Z85 data has an invalid byte (0x{:02X}) at ({}) ",
+                byte, position
+            ),
+            DecodeError::InvalidChunk(position) => write!(
+                f,
+                "Z85 data has an invalid 5-bytes chunk at ({}) ",
+                position
+            ),
+            DecodeError::InvalidTail => write!(f, "Z85 data has an invalid padding chunk"),
+        }
+    }
+}
+
+impl Error for DecodeError {}
 
 /// Errors that can occur while decoding.
 impl DecodeError {
@@ -55,7 +81,7 @@ pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
         return Ok(Vec::with_capacity(0));
     }
     if length % 5 != 0 {
-        return Err(DecodeError::InvalidLength);
+        return Err(DecodeError::InvalidLength(length));
     }
     let has_tail = input[length - 5] == b'#';
     let chunked_size = if has_tail { length - 5 } else { length };

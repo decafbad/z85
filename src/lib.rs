@@ -38,8 +38,8 @@ impl Error for DecodeError {}
 /// Errors that can occur while decoding.
 impl DecodeError {
     fn add_offset(&self, chunk_count: usize) -> Self {
-        let offset = chunk_count * 5;
         use DecodeError::*;
+        let offset = chunk_count * 5;
         match self {
             InvalidByte(index, byte) => InvalidByte(index + offset, *byte),
             InvalidChunk(index) => InvalidChunk(index + offset),

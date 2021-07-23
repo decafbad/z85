@@ -30,7 +30,7 @@ impl BinTail {
 
     pub fn append_to_vec(&self, target: &mut Vec<u8>) {
         let binchunk = self.0;
-        let diff = binchunk[0] as usize;
+        let diff = usize::from(binchunk[0]);
         let slice = &binchunk[diff..];
         target.extend_from_slice(slice);
     }
@@ -41,7 +41,7 @@ pub fn encode_chunk(input: &[u8]) -> [u8; 5] {
     let mut full_num: u32 = 0;
     for &byte in input {
         full_num <<= 8;
-        full_num |= byte as u32;
+        full_num |=u32::from(byte);
     }
     for letter in out.iter_mut().rev() {
         let index = (full_num % 85) as usize;
@@ -54,27 +54,27 @@ pub fn encode_chunk(input: &[u8]) -> [u8; 5] {
 pub fn encode_tail(input: &[u8]) -> [u8; 5] {
     let mut out = encode_chunk(input);
     let diff = 4 - input.len();
-    for index in 0..diff {
-        out[index] = b'#';
+    for l in out.iter_mut().take(diff) {
+        *l = b'#';
     }
     out
 }
 
 pub fn decode_chunk(input: &[u8]) -> Result<[u8; 4], DecodeError> {
+    const U32_MAX: u64 = 0x_FF_FF_FF_FF;
     let mut full_num = 0_u64;
     for (index, &letter) in input.iter().enumerate() {
         if letter <= 0x20 || 0x80 <= letter {
             return Err(DecodeError::InvalidByte(index, letter));
         }
-        let octets_index = (letter - 32) as usize;
+        let octets_index = usize::from(letter - 32);
         let byte = OCTETS[octets_index];
         if byte == 0xFF {
             return Err(DecodeError::InvalidByte(index, letter));
         }
         full_num *= 85;
-        full_num += byte as u64;
+        full_num += u64::from(byte);
     }
-    const U32_MAX: u64 = std::u32::MAX as u64;
     if full_num > U32_MAX {
         return Err(DecodeError::InvalidChunk(0));
     }

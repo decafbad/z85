@@ -17,6 +17,7 @@ static OCTETS: [u8; 96] = [
 ];
 
 pub use super::DecodeError;
+use std::convert::TryInto;
 pub use std::slice;
 
 #[derive(Debug, Copy, Clone)]
@@ -38,11 +39,7 @@ impl BinTail {
 
 pub fn encode_chunk(input: &[u8]) -> [u8; 5] {
     let mut out = [0_u8; 5];
-    let mut full_num: u32 = 0;
-    for &byte in input {
-        full_num <<= 8;
-        full_num |=u32::from(byte);
-    }
+    let mut full_num: u32 = u32::from_be_bytes(input.try_into().unwrap());
     for letter in out.iter_mut().rev() {
         let index = (full_num % 85) as usize;
         *letter = LETTERS[index];
@@ -52,8 +49,10 @@ pub fn encode_chunk(input: &[u8]) -> [u8; 5] {
 }
 
 pub fn encode_tail(input: &[u8]) -> [u8; 5] {
-    let mut out = encode_chunk(input);
+    let mut input_padded = [0_u8; 4];
     let diff = 4 - input.len();
+    input_padded[diff..].copy_from_slice(&input);
+    let mut out = encode_chunk(&input_padded);
     for l in out.iter_mut().take(diff) {
         *l = b'#';
     }

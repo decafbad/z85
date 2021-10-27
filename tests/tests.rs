@@ -16,6 +16,14 @@ fn decode_simple() {
     assert_eq!(&BINARR, bin_dat.as_slice());
 }
 
+#[test]
+fn encode_tail_only() {
+    const BINTAIL: [u8; 2] = [0x86, 0x4F];
+    let z85_dat = encode(&BINTAIL);
+    let out_tail = decode(&z85_dat).unwrap();
+    assert_eq!(&BINTAIL, out_tail.as_slice());
+}
+
 proptest! {
     #[test]
     fn encode_prop(input: Vec<u8>) {

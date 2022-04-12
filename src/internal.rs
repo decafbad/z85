@@ -29,7 +29,7 @@ impl BinTail {
         BinTail(binchunk)
     }
 
-    pub fn append_to_vec(&self, target: &mut Vec<u8>) {
+    pub fn append_to_vec(self, target: &mut Vec<u8>) {
         let binchunk = self.0;
         let diff = usize::from(binchunk[0]);
         let slice = &binchunk[diff..];
@@ -51,7 +51,7 @@ pub fn encode_chunk(input: &[u8]) -> [u8; 5] {
 pub fn encode_tail(input: &[u8]) -> [u8; 5] {
     let mut input_padded = [0_u8; 4];
     let diff = 4 - input.len();
-    input_padded[diff..].copy_from_slice(&input);
+    input_padded[diff..].copy_from_slice(input);
     let mut out = encode_chunk(&input_padded);
     for l in out.iter_mut().take(diff) {
         *l = b'#';

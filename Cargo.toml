@@ -1,6 +1,6 @@
 [package]
 name = "z85"
-version = "3.0.4"
+version = "3.0.5"
 authors = ["Mehmet Kose"]
 repository = "https://github.com/decafbad/z85"
 edition = "2018"
@@ -10,4 +10,4 @@ categories = ["encoding"]
 keywords = ["z85", "decode", "encode"]
 
 [dev-dependencies]
-proptest = "0.10.1"
+proptest = "1"

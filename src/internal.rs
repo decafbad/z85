@@ -18,7 +18,6 @@ static OCTETS: [u8; 96] = [
 
 pub use super::DecodeError;
 use std::convert::TryInto;
-pub use std::slice;
 
 #[derive(Debug, Copy, Clone)]
 pub struct BinTail([u8; 4]);
@@ -83,6 +82,9 @@ pub fn decode_chunk(input: &[u8]) -> Result<[u8; 4], DecodeError> {
 
 pub fn decode_tail(input: &[u8]) -> Result<BinTail, DecodeError> {
     let diff = input.iter().take_while(|&&l| l == b'#').count();
+    if diff > 3 {
+        return Err(DecodeError::InvalidTail);
+    }
     let binchunk = decode_chunk(&input[diff..])?;
     let max_full_num = 256_u32.pow(4 - diff as u32) - 1;
     if u32::from_be_bytes(binchunk) > max_full_num {
@@ -93,6 +95,7 @@ pub fn decode_tail(input: &[u8]) -> Result<BinTail, DecodeError> {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
     use proptest::prelude::*;
 
@@ -115,6 +118,13 @@ mod tests {
         assert_eq!(ans_bin_1, BINCHUNK1);
         let ans_bin_2 = decode_chunk(&Z85CHUNK2).unwrap();
         assert_eq!(ans_bin_2, BINCHUNK2);
+    }
+
+    #[test]
+    fn decode_chunk_full_hash() {
+        let input = "#####".as_bytes();
+        let answer = decode_chunk(input);
+        assert_eq!(answer, Err(DecodeError::InvalidChunk(0)));
     }
 
     #[test]
@@ -152,7 +162,7 @@ mod tests {
             bin_tail.append_to_vec(&mut ans_vec);
             assert_eq!(ans_vec, input);
         }
-
+        #[test]
         fn encode_tail_three_bytes(input: [u8; 3]) {
             let z85_tail = encode_tail(&input);
             let bin_tail = decode_tail(&z85_tail).unwrap();

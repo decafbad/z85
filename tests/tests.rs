@@ -24,6 +24,13 @@ fn encode_tail_only() {
     assert_eq!(&BINTAIL, out_tail.as_slice());
 }
 
+#[test]
+fn decode_too_big_tail() {
+    let z85str = "HelloWorld#####";
+    let decoded = decode(z85str);
+    assert_eq!(decoded, Err(DecodeError::InvalidTail));
+}
+
 proptest! {
     #[test]
     fn encode_prop(input: Vec<u8>) {
